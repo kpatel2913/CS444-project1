@@ -44,10 +44,15 @@ export function makeLendingLibrary() {
 
 export class LendingLibrary {
 
-  //TODO: declare private TS properties for instance
-  
+  /** isbn -> book */
+  private books: Map<ISBN, XBook>;
+
+  /** lowercase word -> ISBNs of books whose title or authors contain it */
+  private wordIndex: Map<string, Set<ISBN>>;
+
   constructor() {
-    //TODO: initialize private TS properties for instance
+    this.books = new Map();
+    this.wordIndex = new Map();
   }
 
   /** Add one-or-more copies of book represented by req to this library.
@@ -60,8 +65,31 @@ export class LendingLibrary {
    *             inconsistent with the data already present.
    */
   addBook(req: Record<string, any>): Errors.Result<XBook> {
-    //TODO
-    return Errors.errResult('TODO');  //placeholder
+    const validResult = validateBook(req);
+    if (!validResult.isOk) return validResult;
+    const book = validResult.val;
+
+    const existing = this.books.get(book.isbn);
+    if (existing) {
+      const badField = findInconsistency(existing, book);
+      if (badField) {
+        const msg = `"${badField}" does not match existing book ${book.isbn}`;
+        return Errors.errResult(msg, 'BAD_REQ', badField);
+      }
+      existing.nCopies += book.nCopies;
+      return Errors.okResult({ ...existing });
+    }
+
+    this.books.set(book.isbn, book);
+    for (const word of bookWords(book)) {
+      let isbns = this.wordIndex.get(word);
+      if (!isbns) {
+        isbns = new Set();
+        this.wordIndex.set(word, isbns);
+      }
+      isbns.add(book.isbn);
+    }
+    return Errors.okResult({ ...book });
   }
 
   /** Return all books matching (case-insensitive) all "words" in
@@ -110,8 +138,88 @@ export class LendingLibrary {
 
 
 //TODO: add domain-specific utility functions or classes.
+const REQUIRED_FIELDS = ['isbn', 'title', 'authors', 'pages', 'year', 'publisher'] as const;
+const STRING_FIELDS = ['isbn', 'title', 'publisher'] as const;
+const INT_FIELDS = ['pages', 'year', 'nCopies'] as const;
+
+/** Validate req, returning a complete XBook (nCopies defaulted to 1). */
+function validateBook(req: Record<string, any>): Errors.Result<XBook> {
+  const errors: Errors.Err[] = [];
+
+  // 1. required fields present?
+  for (const field of REQUIRED_FIELDS) {
+    if (req[field] === undefined) {
+      errors.push(makeErr(`missing required field "${field}"`, 'MISSING', field));
+    }
+  }
+  if (errors.length > 0) return new Errors.ErrResult(errors);
+
+  // 2. string fields
+  for (const field of STRING_FIELDS) {
+    if (typeof req[field] !== 'string') {
+      errors.push(makeErr(`"${field}" must be a string`, 'BAD_TYPE', field));
+    }
+  }
+
+  // 3. numeric fields: must be numbers, then positive integers
+  for (const field of INT_FIELDS) {
+    const value = req[field];
+    if (value === undefined) continue;   // only nCopies can get here undefined
+    if (typeof value !== 'number') {
+      errors.push(makeErr(`"${field}" must be a number`, 'BAD_TYPE', field));
+    }
+    else if (!Number.isInteger(value) || value <= 0) {
+      errors.push(makeErr(`"${field}" must be an integer > 0`, 'BAD_REQ', field));
+    }
+  }
+
+  // 4. authors: non-empty array of strings
+  const authors = req.authors;
+  if (!Array.isArray(authors) || authors.length === 0 ||
+      !authors.every(a => typeof a === 'string')) {
+    errors.push(makeErr(`"authors" must be a non-empty list of strings`,
+                        'BAD_TYPE', 'authors'));
+  }
+
+  if (errors.length > 0) return new Errors.ErrResult(errors);
+
+  const book: XBook = {
+    isbn: req.isbn,
+    title: req.title,
+    authors: [...req.authors],
+    pages: req.pages,
+    year: req.year,
+    publisher: req.publisher,
+    nCopies: req.nCopies ?? 1,
+  };
+  return Errors.okResult(book);
+}
+
+/** Return the name of the first field where a and b differ, if any. */
+function findInconsistency(a: XBook, b: XBook): string | undefined {
+  for (const field of ['title', 'pages', 'year', 'publisher'] as const) {
+    if (a[field] !== b[field]) return field;
+  }
+  if (a.authors.length !== b.authors.length ||
+      a.authors.some((author, i) => author !== b.authors[i])) {
+    return 'authors';
+  }
+  return undefined;
+}
+
+/** All distinct index words in a book's title and authors. */
+function bookWords(book: XBook): Set<string> {
+  return textWords([book.title, ...book.authors].join(' '));
+}
 
 /********************* General Utility Functions ***********************/
 
 //TODO: add general utility functions or classes.
+/** Distinct lowercase words (runs of \w with length > 1) in text. */
+function textWords(text: string): Set<string> {
+  return new Set(text.toLowerCase().match(/\w{2,}/g) ?? []);
+}
 
+function makeErr(msg: string, code: string, widget: string): Errors.Err {
+  return new Errors.Err(msg, { code, widget });
+}

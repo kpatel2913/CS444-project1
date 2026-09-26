@@ -102,10 +102,32 @@ export class LendingLibrary {
    *    BAD_REQ: no words in search
    */
   findBooks(req: Record<string, any>) : Errors.Result<XBook[]> {
-    //TODO
-    return Errors.errResult('TODO');  //placeholder
-  }
+    const search = req.search;
+    if (search === undefined) {
+      return Errors.errResult('missing "search" field', 'MISSING', 'search');
+    }
+    if (typeof search !== 'string') {
+      return Errors.errResult('"search" must be a string', 'BAD_TYPE', 'search');
+    }
+    const words = [...textWords(search)];
+    if (words.length === 0) {
+      return Errors.errResult('no words in search', 'BAD_REQ', 'search');
+    }
 
+    // ISBN set for each search word (empty set if word is unknown),
+    // smallest first so the intersection shrinks quickly
+    const sets = words.map(w => this.wordIndex.get(w) ?? new Set<ISBN>());
+    sets.sort((a, b) => a.size - b.size);
+
+    let matches = sets[0];
+    for (const set of sets.slice(1)) {
+      matches = new Set([...matches].filter(isbn => set.has(isbn)));
+    }
+
+    const books = [...matches].map(isbn => ({ ...this.books.get(isbn)! }));
+    books.sort((a, b) => a.title < b.title ? -1 : a.title > b.title ? 1 : 0);
+    return Errors.okResult(books);
+  }
 
   /** Set up patron req.patronId to check out book req.isbn. 
    * 

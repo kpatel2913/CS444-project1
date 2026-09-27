@@ -153,8 +153,19 @@ export class LendingLibrary {
    *    BAD_REQ error on business rule violation.
    */
   returnBook(req: Record<string, any>) : Errors.Result<void> {
-    //TODO 
-    return Errors.errResult('TODO');  //placeholder
+    const validResult = validatePatronReq(req);
+    if (!validResult.isOk) return validResult;
+    const { patronId, isbn } = validResult.val;
+
+    const patrons = this.loans.get(isbn);
+
+    if (!patrons || !patrons.has(patronId)) {
+      const msg = `no checkout of book ${isbn} by patron ${patronId}`;
+      return Errors.errResult(msg, 'BAD_REQ', 'isbn');
+    }
+
+    patrons.delete(patronId);
+    return Errors.VOID_RESULT;
   }
   
 }

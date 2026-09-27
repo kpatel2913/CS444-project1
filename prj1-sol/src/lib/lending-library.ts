@@ -145,7 +145,7 @@ export class LendingLibrary {
     if (!validResult.isOk) {
       return validResult;
     }
-    const { patronId, ISBN } =  validResult.val;
+    const { patronId, isbn } =  validResult.val;
 
     return Errors.errResult('TODO');  //placeholder
   }

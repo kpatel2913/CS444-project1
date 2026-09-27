@@ -49,14 +49,14 @@ export class LendingLibrary {
 
   /** lowercase word -> ISBNs of books whose title or authors contain it */
   private wordIndex: Map<string, Set<ISBN>>;
-  
-  /** isbn -> patrons currently holding a copy */
-  private checkouts: Map<ISBN, Set<PatronId>>;
+
+  /** isbn -> set of patron ids who currently have this book checked out */
+  private loans: Map<ISBN, Set<PatronId>>;
 
   constructor() {
     this.books = new Map();
     this.wordIndex = new Map();
-    this.checkouts = new Map();
+    this.loans = new Map();
   }
 
   /** Add one-or-more copies of book represented by req to this library.
@@ -158,8 +158,19 @@ export class LendingLibrary {
    *    BAD_REQ error on business rule violation.
    */
   returnBook(req: Record<string, any>) : Errors.Result<void> {
-    //TODO 
-    return Errors.errResult('TODO');  //placeholder
+    const validResult = validatePatronReq(req);
+    if (!validResult.isOk) return validResult;
+    const { patronId, isbn } = validResult.val;
+
+    const patrons = this.loans.get(isbn);
+
+    if (!patrons || !patrons.has(patronId)) {
+      const msg = `no checkout of book ${isbn} by patron ${patronId}`;
+      return Errors.errResult(msg, 'BAD_REQ', 'isbn');
+    }
+
+    patrons.delete(patronId);
+    return Errors.VOID_RESULT;
   }
   
 }
@@ -241,6 +252,25 @@ function findInconsistency(a: XBook, b: XBook): string | undefined {
 /** All distinct index words in a book's title and authors. */
 function bookWords(book: XBook): Set<string> {
   return textWords([book.title, ...book.authors].join(' '));
+}
+
+/** Validate req for patron actions (return and checkout), checking patronId and isbn */
+function validatePatronReq(req: Record<string, any>): Errors.Result<ReturnBookReq> {
+
+  const errors: Errors.Err[] = [];
+
+  for (const field of ['patronId', 'isbn'] as const) {
+    const value = req[field];
+    if (value === undefined) {
+      errors.push(makeErr(`missing required field "${field}"`, 'MISSING', field));
+    }
+    else if (typeof value !== 'string'){
+      errors.push(makeErr(`""${field}" must be a string`, 'BAD_TYPE', field));
+    }
+  }
+
+  if (errors.length > 0) return new Errors.ErrResult(errors);
+  return Errors.okResult({ patronId: req.PatronId, isbn: req.isbn});
 }
 
 /********************* General Utility Functions ***********************/

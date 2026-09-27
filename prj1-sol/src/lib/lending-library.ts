@@ -146,8 +146,26 @@ export class LendingLibrary {
       return validResult;
     }
     const { patronId, isbn } =  validResult.val;
+    const book = this.books.get(isbn);
+    if (!book) {
+      return Errors.errResult(`Unknown book ${isbn}`, 'BAD_REQ', 'isbn');
+    }
 
-    return Errors.errResult('TODO');  //placeholder
+    const patrons = this.loans.get(isbn) ?? new Set<PatronId>();
+    if (patrons.has(patronId)) {
+      const msg = `patron ${patronId} already has a book ${isbn} checked out`;
+      return Errors.errResult(msg, 'BAD_REQ', 'isbn');
+    }
+
+    if (patrons.size >= book.nCopies) {
+      const msg = `no copies of book ${isbn} are available  for checkout`;
+      return Errors.errResult(msg, 'BAD_REQ', 'isbn');
+    }
+    
+    patrons.add(patronId);
+    this.loans.set(isbn, patrons);
+    return Errors.VOID_RESULT;
+
   }
 
   /** Set up patron req.patronId to returns book req.isbn.
@@ -270,7 +288,7 @@ function validatePatronReq(req: Record<string, any>): Errors.Result<ReturnBookRe
   }
 
   if (errors.length > 0) return new Errors.ErrResult(errors);
-  return Errors.okResult({ patronId: req.PatronId, isbn: req.isbn});
+  return Errors.okResult({ patronId: req.patronId, isbn: req.isbn});
 }
 
 /********************* General Utility Functions ***********************/

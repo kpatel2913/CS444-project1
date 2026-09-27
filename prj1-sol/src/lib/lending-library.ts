@@ -49,10 +49,14 @@ export class LendingLibrary {
 
   /** lowercase word -> ISBNs of books whose title or authors contain it */
   private wordIndex: Map<string, Set<ISBN>>;
+  
+  /** isbn -> patrons currently holding a copy */
+  private checkouts: Map<ISBN, Set<PatronId>>;
 
   constructor() {
     this.books = new Map();
     this.wordIndex = new Map();
+    this.checkouts = new Map();
   }
 
   /** Add one-or-more copies of book represented by req to this library.
@@ -137,7 +141,12 @@ export class LendingLibrary {
    *    BAD_REQ error on business rule violation.
    */
   checkoutBook(req: Record<string, any>) : Errors.Result<void> {
-    //TODO
+    const validResult = validatePatronReq(req);
+    if (!validResult.isOk) {
+      return validResult;
+    }
+    const { patronId, ISBN } =  validResult.val;
+
     return Errors.errResult('TODO');  //placeholder
   }
 

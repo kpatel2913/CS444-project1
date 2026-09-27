@@ -4,12 +4,12 @@
   "description": "Name:\t\tXXX B-Number:\tXXX Email:\t\tXXX",
   "main": "index.js",
   "scripts": {
-    "test": "mocha --reporter-options maxDiffSize=128000 dist/test",
     "clean": "shx rm -rf dist",
     "build": "tsc",
     "postbuild": "shx chmod a+x dist/index.js",
     "watch": "tsc --watch",
     "pretest": "npm run build",
+    "test": "mocha --reporter-options maxDiffSize=128000 dist/test",
     "predebug-test": "npm run build",
     "debug-test": "mocha --inspect-brk dist/test"
   },

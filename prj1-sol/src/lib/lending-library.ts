@@ -197,7 +197,7 @@ export class LendingLibrary {
 /********************** Domain Utility Functions ***********************/
 
 
-//TODO: add domain-specific utility functions or classes.
+
 const REQUIRED_FIELDS = ['isbn', 'title', 'authors', 'pages', 'year', 'publisher'] as const;
 const STRING_FIELDS = ['isbn', 'title', 'publisher'] as const;
 const INT_FIELDS = ['pages', 'year', 'nCopies'] as const;
@@ -293,7 +293,7 @@ function validatePatronReq(req: Record<string, any>): Errors.Result<ReturnBookRe
 
 /********************* General Utility Functions ***********************/
 
-//TODO: add general utility functions or classes.
+
 /** Distinct lowercase words (runs of \w with length > 1) in text. */
 function textWords(text: string): Set<string> {
   return new Set(text.toLowerCase().match(/\w{2,}/g) ?? []);
